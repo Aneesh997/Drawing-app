@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tonal Analysis Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --surface: #141414;
+            --surface2: #1c1c1c;
+            --border: #2a2a2a;
+            --accent: #c8f060;
+            --accent2: #f0c060;
+            --text: #e8e8e0;
+            --muted: #555;
+            --danger: #ff6b6b;
+            --success: #6bffb8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Subtle grain overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ── Header ─────────────────────────────────────── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 48px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: rgba(13,13,13,0.94);
+            backdrop-filter: blur(14px);
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.35rem;
+            letter-spacing: -0.02em;
+        }
+        .logo span { color: var(--accent); }
+
+        .header-tag {
+            font-size: 0.6rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 2px;
+        }
+
+        /* ── Main ───────────────────────────────────────── */
+        main {
+            flex: 1;
+            padding: 52px 48px 40px;
+            max-width: 1440px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ── Page title ─────────────────────────────────── */
+        .page-title {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            gap: 24px;
+        }
+
+        .page-title h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(2rem, 4vw, 3.8rem);
+            line-height: 1.06;
+            letter-spacing: -0.03em;
+        }
+        .page-title h1 em { color: var(--accent); font-style: italic; }
+
+        .page-title-sub {
+            font-size: 0.68rem;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            line-height: 1.9;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* ── Alerts ─────────────────────────────────────── */
+        .alerts { margin-bottom: 16px; }
+
+        .alert {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 16px;
+            border-radius: 2px;
+            margin-bottom: 8px;
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+            animation: alertIn 0.25s ease-out;
+        }
+        @keyframes alertIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .alert-success {
+            background: rgba(107,255,184,0.07);
+            border: 1px solid rgba(107,255,184,0.2);
+            color: var(--success);
+        }
+        .alert-error {
+            background: rgba(255,107,107,0.07);
+            border: 1px solid rgba(255,107,107,0.2);
+            color: var(--danger);
+        }
+        .close-alert {
+            background: none; border: none; cursor: pointer;
+            color: inherit; opacity: 0.45; font-size: 16px;
+            padding: 0 0 0 14px; line-height: 1;
+        }
+        .close-alert:hover { opacity: 1; }
+
+        /* ── Workspace ──────────────────────────────────── */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            min-height: 520px;
+        }
+
+        .panel {
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
+            flex-shrink: 0;
+        }
+
+        .panel-label {
+            font-size: 0.62rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .panel-badge {
+            font-size: 0.58rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 3px 9px;
+            border-radius: 2px;
+            background: var(--border);
+            color: var(--muted);
+            transition: all 0.3s ease;
+        }
+        .panel-badge.ready {
+            background: rgba(200,240,96,0.1);
+            color: var(--accent);
+        }
+
+        .panel-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+        }
+
+        /* ── Drop zone ──────────────────────────────────── */
+        .drop-zone {
+            width: 100%;
+            flex: 1;
+            min-height: 360px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed var(--border);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            gap: 14px;
+            padding: 32px;
+        }
+        .drop-zone:hover {
+            border-color: var(--accent);
+            background: rgba(200,240,96,0.025);
+        }
+        .drop-zone.dragover {
+            border-color: var(--accent2);
+            background: rgba(240,192,96,0.04);
+        }
+
+        .drop-icon {
+            width: 52px;
+            height: 52px;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.2s ease;
+        }
+        .drop-zone:hover .drop-icon {
+            border-color: var(--accent);
+            background: rgba(200,240,96,0.07);
+        }
+        .drop-text-main { font-size: 0.78rem; color: var(--text); letter-spacing: 0.03em; }
+        .drop-text-sub  { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.06em; text-align: center; line-height: 1.8; }
+
+        input[type="file"] { display: none; }
+
+        /* ── Image display (both panels) ────────────────── */
+        .img-display {
+            width: 100%;
+            flex: 1;
+            min-height: 360px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .img-display img {
+            max-width: 100%;
+            max-height: 420px;
+            object-fit: contain;
+            border-radius: 2px;
+            display: block;
+        }
+
+        /* Hover overlay — left panel only */
+        .img-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(13,13,13,0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .img-display:hover .img-overlay { opacity: 1; }
+
+        .reupload-btn {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.68rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 10px 22px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .reupload-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Right panel output reveal animation */
+        .img-display.output img {
+            animation: revealImg 0.5s ease-out;
+        }
+        @keyframes revealImg {
+            from { opacity: 0; transform: scale(0.975); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        /* ── Placeholder (right panel, no result yet) ──── */
+        .placeholder-output {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            color: var(--muted);
+        }
+        .placeholder-output p {
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        /* ── Controls bar ───────────────────────────────── */
+        .controls {
+            margin-top: 2px;
+            padding: 18px 28px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .file-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.68rem;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+        }
+
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--border);
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+        .status-dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 7px var(--accent);
+            animation: dotPulse 1.6s ease-in-out infinite;
+        }
+        .status-dot.done {
+            background: var(--success);
+            box-shadow: 0 0 7px var(--success);
+            animation: none;
+        }
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.35; }
+        }
+
+        .btn-analyze {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #0d0d0d;
+            background: var(--accent);
+            border: none;
+            padding: 13px 44px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-analyze:hover  { filter: brightness(1.08); }
+        .btn-analyze:active { transform: scale(0.98); }
+        .btn-analyze:disabled {
+            background: var(--border);
+            color: var(--muted);
+            cursor: not-allowed;
+            filter: none;
+        }
+        .btn-analyze.loading { background: var(--accent2); }
+
+        .spinner-ring {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border: 2px solid rgba(0,0,0,0.15);
+            border-top-color: #0d0d0d;
+            border-radius: 50%;
+            animation: spin 0.65s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Footer ─────────────────────────────────────── */
+        footer {
+            padding: 18px 48px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        footer p, footer a {
+            font-size: 0.62rem;
+            color: var(--muted);
+            text-decoration: none;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        footer a:hover { color: var(--accent); }
+
+        /* ── Responsive ─────────────────────────────────── */
+        @media (max-width: 800px) {
+            header, main, footer { padding-left: 20px; padding-right: 20px; }
+            main { padding-top: 32px; }
+            .workspace { grid-template-columns: 1fr; }
+            .page-title { flex-direction: column; align-items: flex-start; }
+            .page-title-sub { text-align: left; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .btn-analyze { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+    <div class="logo">Tonal<span>.</span>Studio</div>
+    <span class="header-tag">Demo Build · v0.1</span>
+</header>
+
+<!-- Main -->
+<main>
+    <div class="page-title">
+        <h1>Reference <em>Analysis</em><br>Workspace</h1>
+        <div class="page-title-sub">
+            Upload a reference image<br>
+            Run analysis to see output side by side
+        </div>
+    </div>
+
+    <!-- Flash alerts -->
+    <div class="alerts" id="alertsContainer">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button class="close-alert" onclick="this.parentElement.remove()">×</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+        <input type="file" name="image" id="fileInput" accept="image/*">
+
+        <div class="workspace">
+
+            <!-- ───────── LEFT: Reference Input ───────────── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-label">01 — Reference Input</span>
+                    <span class="panel-badge {% if image %}ready{% endif %}" id="inputBadge">
+                        {% if image %}Image Loaded{% else %}Awaiting File{% endif %}
+                    </span>
+                </div>
+                <div class="panel-body">
+
+                    {% if image %}
+                        {# Page reloaded after upload: always show uploaded image on the left #}
+                        <div class="img-display" id="imgDisplay">
+                            <img src="{{ image }}" alt="Reference Image">
+                            <div class="img-overlay" onclick="document.getElementById('fileInput').click()">
+                                <button type="button" class="reupload-btn">Change Image</button>
+                            </div>
+                        </div>
+
+                    {% else %}
+                        {# No upload yet: show drop zone; JS swaps to preview on file select #}
+                        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                            <div class="drop-icon">⬆</div>
+                            <div class="drop-text-main">Drop image or click to browse</div>
+                            <div class="drop-text-sub">PNG · JPG · JPEG · WEBP · GIF<br>Max 16 MB</div>
+                        </div>
+
+                        <div class="img-display" id="jsPreviewWrap" style="display:none;">
+                            <img src="" alt="Preview" id="jsPreviewImg">
+                            <div class="img-overlay" onclick="document.getElementById('fileInput').click()">
+                                <button type="button" class="reupload-btn">Change Image</button>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- ───────── RIGHT: Analysis Output ─────────── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-label">02 — Analysis Output</span>
+                    <span class="panel-badge {% if image %}ready{% endif %}">
+                        {% if image %}Output Ready{% else %}Pending{% endif %}
+                    </span>
+                </div>
+                <div class="panel-body">
+
+                    {% if image %}
+                        {# Show the same uploaded image as output (demo — no processing) #}
+                        <div class="img-display output">
+                            <img src="{{ image }}" alt="Analysis Output">
+                        </div>
+
+                    {% else %}
+                        <div class="placeholder-output">
+                            <svg width="60" height="60" viewBox="0 0 60 60" fill="none" opacity="0.2">
+                                <rect x="6" y="6" width="48" height="48" rx="2"
+                                      stroke="#e8e8e0" stroke-width="1.5" stroke-dasharray="4 3"/>
+                                <polyline points="6,38 18,22 32,31 44,19 54,29"
+                                          stroke="#e8e8e0" stroke-width="1.5" fill="none"/>
+                                <circle cx="44" cy="19" r="4.5" stroke="#e8e8e0" stroke-width="1.5"/>
+                            </svg>
+                            <p>Output appears after analysis</p>
+                        </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+        </div><!-- /.workspace -->
+
+        <!-- Controls bar -->
+        <div class="controls">
+            <div class="file-meta">
+                <span class="status-dot {% if image %}done{% endif %}" id="statusDot"></span>
+                <span id="fileMetaText">
+                    {% if image %}Image loaded — ready to re-run{% else %}No file selected{% endif %}
+                </span>
+            </div>
+
+            <button type="submit" class="btn-analyze" id="submitBtn">
+                <span id="btnLabel">
+                    {% if image %}Re-run Analysis{% else %}Run Analysis{% endif %}
+                </span>
+            </button>
+        </div>
+
+    </form>
+</main>
+
+<!-- Footer -->
+<footer>
+    <p>Tonal Analysis Studio — Demo Build</p>
+    <a href="{{ url_for('index') }}">Reset Workspace</a>
+</footer>
+
+<script>
+    const fileInput     = document.getElementById('fileInput');
+    const uploadForm    = document.getElementById('uploadForm');
+    const submitBtn     = document.getElementById('submitBtn');
+    const btnLabel      = document.getElementById('btnLabel');
+    const fileMetaText  = document.getElementById('fileMetaText');
+    const statusDot     = document.getElementById('statusDot');
+    const inputBadge    = document.getElementById('inputBadge');
+
+    // Only present when no server image exists yet
+    const dropZone      = document.getElementById('dropZone');
+    const jsPreviewWrap = document.getElementById('jsPreviewWrap');
+    const jsPreviewImg  = document.getElementById('jsPreviewImg');
+
+    // ── Drag & drop (only when drop zone rendered) ────────
+    if (dropZone) {
+        ['dragenter','dragover','dragleave','drop'].forEach(evt => {
+            dropZone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+            document.body.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+        });
+        dropZone.addEventListener('dragenter', () => dropZone.classList.add('dragover'));
+        dropZone.addEventListener('dragover',  () => dropZone.classList.add('dragover'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) { fileInput.files = files; handleFile(files[0]); }
+        });
+    }
+
+    // ── File input ────────────────────────────────────────
+    fileInput.addEventListener('change', function () {
+        if (this.files.length) handleFile(this.files[0]);
+    });
+
+    function handleFile(file) {
+        if (file.size > 16 * 1024 * 1024) {
+            showAlert('File exceeds the 16 MB limit.', 'error');
+            return;
+        }
+
+        const mb   = (file.size / 1024 / 1024).toFixed(2);
+        const name = file.name.length > 40 ? file.name.slice(0, 37) + '…' : file.name;
+
+        fileMetaText.textContent = `${name}  ·  ${mb} MB`;
+        statusDot.classList.remove('done');
+        statusDot.classList.add('active');
+        inputBadge.textContent = 'File Loaded';
+        inputBadge.classList.add('ready');
+        btnLabel.textContent = 'Run Analysis';
+
+        // JS preview in left panel (only when drop zone exists)
+        if (dropZone && jsPreviewWrap && jsPreviewImg) {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                jsPreviewImg.src = ev.target.result;
+                dropZone.style.display   = 'none';
+                jsPreviewWrap.style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // ── Submit ────────────────────────────────────────────
+    uploadForm.addEventListener('submit', function (e) {
+        const hasNewFile     = fileInput.files.length > 0;
+        const hasServerImage = statusDot.classList.contains('done');
+
+        if (!hasNewFile && !hasServerImage) {
+            e.preventDefault();
+            showAlert('Please select an image first.', 'error');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        btnLabel.innerHTML = '<span class="spinner-ring"></span>Analysing…';
+        submitBtn.classList.add('loading');
+    });
+
+    // ── Auto-dismiss alerts ───────────────────────────────
+    setTimeout(() => {
+        document.querySelectorAll('.alert').forEach(a => a.remove());
+    }, 6000);
+
+    function showAlert(msg, type) {
+        const c = document.getElementById('alertsContainer');
+        const d = document.createElement('div');
+        d.className = `alert alert-${type}`;
+        d.innerHTML = `<span>${msg}</span><button class="close-alert" onclick="this.parentElement.remove()">×</button>`;
+        c.prepend(d);
+        setTimeout(() => d.remove(), 6000);
+    }
+</script>
+
+</body>
+</html>
