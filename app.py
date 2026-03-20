@@ -3,6 +3,9 @@ import os
 from werkzeug.utils import secure_filename
 import uuid
 
+# Import from utils folder
+from utils.image_processing import convert_to_grayscale
+
 app = Flask(__name__)
 app.secret_key = "your-secret-key-here-change-in-production"
 
@@ -30,6 +33,7 @@ def unique_filename(filename):
 @app.route("/", methods=["GET", "POST"])
 def index():
     image_path = None
+    gray_image_path = None  # NEW
 
     if request.method == "POST":
         if 'image' not in request.files:
@@ -44,22 +48,35 @@ def index():
 
         if file and allowed_file(file.filename):
             try:
+                # Save original image
                 fname = unique_filename(secure_filename(file.filename))
                 save_path = os.path.join(app.config["UPLOAD_FOLDER"], fname)
                 file.save(save_path)
 
-                # Pass the path as-is; Flask's static serving will handle it.
-                # Template uses it directly as <img src="...">
-                image_path = save_path
+                # ── Grayscale processing ──
+                gray_path = convert_to_grayscale(
+                    save_path,
+                    app.config["UPLOAD_FOLDER"],
+                    fname
+                )
 
-                flash('Image uploaded successfully!', 'success')
+                # Send both paths to frontend
+                image_path = save_path
+                gray_image_path = gray_path
+
+                flash('Image processed successfully!', 'success')
+
             except Exception as e:
                 app.logger.error(f"Upload error: {e}")
-                flash('Error saving file. Please try again.', 'error')
+                flash('Error processing file. Please try again.', 'error')
         else:
             flash('Invalid file type. Accepted: PNG, JPG, JPEG, GIF, WEBP.', 'error')
 
-    return render_template("index.html", image=image_path)
+    return render_template(
+        "index.html",
+        image=image_path,
+        gray_image=gray_image_path
+    )
 
 
 @app.errorhandler(413)

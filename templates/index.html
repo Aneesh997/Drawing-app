@@ -514,7 +514,11 @@
                     {% if image %}
                         {# Show the same uploaded image as output (demo — no processing) #}
                         <div class="img-display output">
-                            <img src="{{ image }}" alt="Analysis Output">
+                            {% if gray_image %}
+    <img src="{{ gray_image }}" alt="Grayscale Output">
+{% else %}
+    <img src="{{ image }}" alt="Analysis Output">
+{% endif %}
                         </div>
 
                     {% else %}
