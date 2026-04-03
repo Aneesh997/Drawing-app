@@ -33,7 +33,14 @@ def unique_filename(filename):
 @app.route("/", methods=["GET", "POST"])
 def index():
     image_path = None
-    gray_image_path = None  # NEW
+    gray_image_path = None
+
+    # 👉 ADD THESE (important)
+    mean = None
+    min_val = None
+    max_val = None
+    std = None
+    hist = None
 
     if request.method == "POST":
         if 'image' not in request.files:
@@ -53,14 +60,13 @@ def index():
                 save_path = os.path.join(app.config["UPLOAD_FOLDER"], fname)
                 file.save(save_path)
 
-                # ── Grayscale processing ──
-                gray_path = convert_to_grayscale(
+                # ── Grayscale + Brightness Analysis ──
+                gray_path, mean, min_val, max_val, std , hist = convert_to_grayscale(
                     save_path,
                     app.config["UPLOAD_FOLDER"],
                     fname
                 )
 
-                # Send both paths to frontend
                 image_path = save_path
                 gray_image_path = gray_path
 
@@ -75,9 +81,13 @@ def index():
     return render_template(
         "index.html",
         image=image_path,
-        gray_image=gray_image_path
+        gray_image=gray_image_path,
+        mean=mean,
+        min_val=min_val,
+        max_val=max_val,
+        std=std,
+        hist=hist.tolist() if hist is not None else None
     )
-
 
 @app.errorhandler(413)
 def too_large(e):

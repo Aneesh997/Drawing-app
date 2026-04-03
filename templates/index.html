@@ -511,34 +511,38 @@
                 </div>
                 <div class="panel-body">
 
-                    {% if image %}
-                        {# Show the same uploaded image as output (demo — no processing) #}
-                        <div class="img-display output">
-                            {% if gray_image %}
-    <img src="{{ gray_image }}" alt="Grayscale Output">
-{% else %}
-    <img src="{{ image }}" alt="Analysis Output">
+                    <div class="img-display output" style="flex-direction: column; gap: 20px;">
+
+    {% if gray_image %}
+        <img src="{{ gray_image }}" alt="Grayscale Output">
+    {% else %}
+        <img src="{{ image }}" alt="Analysis Output">
+    {% endif %}
+
+    {% if hist %}
+<canvas id="histChart" width="400" height="150" style="width:100%;max-width:700px;height:180px;border-radius:4px;background:rgba(12,12,12,0.06)"></canvas>
 {% endif %}
-                        </div>
 
-                    {% else %}
-                        <div class="placeholder-output">
-                            <svg width="60" height="60" viewBox="0 0 60 60" fill="none" opacity="0.2">
-                                <rect x="6" y="6" width="48" height="48" rx="2"
-                                      stroke="#e8e8e0" stroke-width="1.5" stroke-dasharray="4 3"/>
-                                <polyline points="6,38 18,22 32,31 44,19 54,29"
-                                          stroke="#e8e8e0" stroke-width="1.5" fill="none"/>
-                                <circle cx="44" cy="19" r="4.5" stroke="#e8e8e0" stroke-width="1.5"/>
-                            </svg>
-                            <p>Output appears after analysis</p>
-                        </div>
-                    {% endif %}
+    <!-- ✅ WEEK 3 BRIGHTNESS OUTPUT -->
+    {% if mean %}
+    <div style="
+        background: #1c1c1c;
+        border: 1px solid #2a2a2a;
+        padding: 15px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        width: 100%;
+        max-width: 400px;
+    ">
+        <p><strong>Brightness Analysis</strong></p>
+        <p>Mean: {{ mean }}</p>
+        <p>Min: {{ min_val }}</p>
+        <p>Max: {{ max_val }}</p>
+        <p>Contrast (Std Dev): {{ std }}</p>
+    </div>
+    {% endif %}
 
-                </div>
-            </div>
-
-        </div><!-- /.workspace -->
-
+</div>
         <!-- Controls bar -->
         <div class="controls">
             <div class="file-meta">
@@ -595,9 +599,11 @@
     }
 
     // ── File input ────────────────────────────────────────
-    fileInput.addEventListener('change', function () {
-        if (this.files.length) handleFile(this.files[0]);
-    });
+    if (fileInput) {
+        fileInput.addEventListener('change', function () {
+            if (this.files.length) handleFile(this.files[0]);
+        });
+    }
 
     function handleFile(file) {
         if (file.size > 16 * 1024 * 1024) {
@@ -608,12 +614,10 @@
         const mb   = (file.size / 1024 / 1024).toFixed(2);
         const name = file.name.length > 40 ? file.name.slice(0, 37) + '…' : file.name;
 
-        fileMetaText.textContent = `${name}  ·  ${mb} MB`;
-        statusDot.classList.remove('done');
-        statusDot.classList.add('active');
-        inputBadge.textContent = 'File Loaded';
-        inputBadge.classList.add('ready');
-        btnLabel.textContent = 'Run Analysis';
+        if (fileMetaText) fileMetaText.textContent = `${name}  ·  ${mb} MB`;
+        if (statusDot) { statusDot.classList.remove('done'); statusDot.classList.add('active'); }
+        if (inputBadge) { inputBadge.textContent = 'File Loaded'; inputBadge.classList.add('ready'); }
+        if (btnLabel) btnLabel.textContent = 'Run Analysis';
 
         // JS preview in left panel (only when drop zone exists)
         if (dropZone && jsPreviewWrap && jsPreviewImg) {
@@ -656,7 +660,92 @@
         c.prepend(d);
         setTimeout(() => d.remove(), 6000);
     }
+
 </script>
+
+{% if hist %}
+<script>
+// Lightweight histogram draw on canvas (no Chart.js)
+(function(){
+    try {
+        const histData = {{ hist|tojson }};
+        const c = document.getElementById('histChart');
+        if (!c || !Array.isArray(histData)) return;
+
+        const DPR = window.devicePixelRatio || 1;
+        const containerW = c.clientWidth || 400;
+        const w = Math.max(300, Math.min(800, containerW));
+        const h = 180;
+        c.width = Math.round(w * DPR);
+        c.height = Math.round(h * DPR);
+        c.style.width = w + 'px';
+        c.style.height = h + 'px';
+
+        const ctx = c.getContext('2d');
+        ctx.scale(DPR, DPR);
+        ctx.clearRect(0,0,w,h);
+
+        const margin = { left: 44, right: 8, top: 8, bottom: 36 };
+        const chartW = w - margin.left - margin.right;
+        const chartH = h - margin.top - margin.bottom;
+        const maxV = Math.max.apply(null, histData) || 1;
+        const barW = chartW / histData.length;
+
+        // axes
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(margin.left, margin.top);
+        ctx.lineTo(margin.left, margin.top + chartH);
+        ctx.lineTo(margin.left + chartW, margin.top + chartH);
+        ctx.stroke();
+
+        // bars
+        ctx.fillStyle = 'rgba(200,240,96,0.85)';
+        for (let i = 0; i < histData.length; i++) {
+            const val = histData[i];
+            const x = margin.left + i * barW;
+            const hBar = (val / maxV) * chartH;
+            ctx.fillRect(x, margin.top + chartH - hBar, Math.max(1, Math.ceil(barW)), hBar);
+        }
+
+        // y-axis ticks and labels
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.font = '11px DM Mono, monospace';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const ticks = [0, Math.round(maxV/2), maxV];
+        for (let t of ticks) {
+            const y = margin.top + chartH - (t / maxV) * chartH;
+            ctx.fillText(String(t), margin.left - 8, y);
+            ctx.beginPath();
+            ctx.moveTo(margin.left - 4, y);
+            ctx.lineTo(margin.left + 6, y);
+            ctx.stroke();
+        }
+
+        // x-axis labels (0 and 255)
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('0', margin.left, margin.top + chartH + 6);
+        ctx.fillText('255', margin.left + chartW, margin.top + chartH + 6);
+
+        // axis descriptions
+        ctx.save();
+        ctx.translate(14, margin.top + chartH/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.textAlign = 'center';
+        ctx.fillText('Pixel Count', 0, 0);
+        ctx.restore();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Intensity (0–255)', margin.left + chartW/2, margin.top + chartH + 20);
+
+    } catch (e) { console.error('Histogram draw error:', e); }
+})();
+</script>
+{% endif %}
 
 </body>
 </html>
